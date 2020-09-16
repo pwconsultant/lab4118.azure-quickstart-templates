@@ -17,6 +17,7 @@ param(
     [string]$CredScanResult = "$ENV:RESULT_CREDSCAN",
     [string]$BuildReason = "$ENV:BUILD_REASON",
     [string]$AgentJobStatus = "$ENV:AGENT_JOBSTATUS",
+    [string]$ValidationType = "$ENV:VALIDATION_TYPE",
     [string]$ResultDeploymentParameter = "$ENV:RESULT_DEPLOYMENT_PARAMETER", #also cloud specific
     [string]$FairfaxDeployment = "",
     [string]$FairfaxLastTestDate = (Get-Date -Format "yyyy-MM-dd").ToString(),
@@ -30,7 +31,8 @@ $ctx = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAcco
 
 if ($BuildReason -eq "PullRequest") {
     $t = $TableNamePRs
-}else{
+}
+else {
     $t = $TableName
 }
 
@@ -50,7 +52,7 @@ $PartitionKey = $Metadata.Type # if the type changes we'll have an orphaned row,
 $r = Get-AzTableRow -table $cloudTable -PartitionKey $PartitionKey -RowKey $RowKey
 
 # if the build was cancelled and this was a scheduled build, we need to set the metadata status back to "Live"
-if($r -ne $null -and $AgentJobStatus -eq "Canceled" -and $BuildReason -ne "PullRequest"){
+if ($r -ne $null -and $AgentJobStatus -eq "Canceled" -and $BuildReason -ne "PullRequest") {
     if ($r.status -eq $null) {
         Add-Member -InputObject $r -NotePropertyName "status" -NotePropertyValue "Live"
     }
@@ -70,6 +72,15 @@ $FairfaxDeployment = $FairfaxDeployment -ireplace [regex]::Escape("true"), "PASS
 $FairfaxDeployment = $FairfaxDeployment -ireplace [regex]::Escape("false"), "FAIL"
 $PublicDeployment = $PublicDeployment -ireplace [regex]::Escape("true"), "PASS"
 $PublicDeployment = $PublicDeployment -ireplace [regex]::Escape("false"), "FAIL"
+
+if($ValidationType -eq "Manual"){
+    if($FairfaxDeployment -ne "Not Supported"){
+        $FairfaxDeployment = "Manual Test"
+    }
+    if($PublicDeployment -ne "Not Supported"){
+        $PublicDeployment = "Manual Test"
+    }
+}
 
 # if the record doesn't exist, this is probably a new sample and needs to be added (or we just cleaned the table)
 if ($r -eq $null) {
@@ -173,6 +184,11 @@ else {
         else {
             $r.status = $BuildReason
         }
+        # set the pr number only if the column isn't present (should be true only for older prs before this column was added)
+        if ($r.pr -eq $null) {
+            Add-Member -InputObject $r -NotePropertyName "pr" -NotePropertyValue $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER            
+        }
+        
         # if it's a PR, set the build number, since it's not set before this outside of a scheduled build
         if ($r.($ResultDeploymentParameter + "BuildNumber") -eq $null) {
             Add-Member -InputObject $r -NotePropertyName ($ResultDeploymentParameter + "BuildNumber") -NotePropertyValue $ENV:BUILD_BUILDNUMBER           
@@ -180,8 +196,16 @@ else {
         else {
             $r.($ResultDeploymentParameter + "BuildNumber") = $ENV:BUILD_BUILDNUMBER
         }
-        
-    } else { # if this isn't a PR, then it's a scheduled build so set the status back to "live" as the test is complete
+        if ($r.pr -eq $null) {
+            Add-Member -InputObject $r -NotePropertyName "pr" -NotePropertyValue $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+        }
+        else {
+            $r.pr = $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+        }   
+    
+    }
+    else {
+        # if this isn't a PR, then it's a scheduled build so set the status back to "live" as the test is complete
         if ($r.status -eq $null) {
             Add-Member -InputObject $r -NotePropertyName "status" -NotePropertyValue "Live"
         }
@@ -269,7 +293,8 @@ if ($r.FairfaxDeployment -ne $null) {
 switch ($FairfaxDeployment) {
     "PASS" { $FairfaxDeploymentColor = "brightgreen" }
     "FAIL" { $FairfaxDeploymentColor = "red" }
-    "Not Supported" {$FairfaxDeploymentColor = "yellow"}
+    "Not Supported" { $FairfaxDeploymentColor = "yellow" }
+    "Manual Test" { $FairfaxDeploymentColor = "blue" }
     default {
         $FairfaxDeployment = $na
         $FairfaxDeploymentColor = "inactive"    
@@ -283,7 +308,8 @@ if ($r.PublicDeployment -ne $null) {
 switch ($PublicDeployment) {
     "PASS" { $PublicDeploymentColor = "brightgreen" }
     "FAIL" { $PublicDeploymentColor = "red" }
-    "Not Supported" {$PublicDeploymentColor = "yellow"}
+    "Not Supported" { $PublicDeploymentColor = "yellow" }
+    "Manual Test" { $PublicDeploymentColor = "blue" }
     default {
         $PublicDeployment = $na
         $PublicDeploymentColor = "inactive"    
@@ -362,11 +388,11 @@ foreach ($badge in $badges) {
     $badgePath = $RowKey.Replace("@", "/")
 
     Set-AzStorageBlobContent -Container $containerName `
-                             -File $badge.filename `
-                             -Blob "$badgePath/$($badge.filename)" `
-                             -Context $ctx `
-                             -Properties @{"ContentType" = "image/svg+xml"; "CacheControl" = "no-cache" } `
-                             -Force -Verbose
+        -File $badge.filename `
+        -Blob "$badgePath/$($badge.filename)" `
+        -Context $ctx `
+        -Properties @{"ContentType" = "image/svg+xml"; "CacheControl" = "no-cache" } `
+        -Force -Verbose
 }
 
 <#Debugging only

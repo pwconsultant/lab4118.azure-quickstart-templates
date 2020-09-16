@@ -1,5 +1,5 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
     "adminUsername": {
@@ -109,7 +109,7 @@
   "resources": [
     {
       "type": "Microsoft.Network/networkInterfaces",
-      "apiVersion": "2018-10-01",
+      "apiVersion": "2020-05-01",
       "name": "[variables('networkInterfaceName')]",
       "location": "[parameters('location')]",
       "dependsOn": [
@@ -139,7 +139,7 @@
     },
     {
       "type": "Microsoft.Network/networkSecurityGroups",
-      "apiVersion": "2019-02-01",
+      "apiVersion": "2020-05-01",
       "name": "[parameters('networkSecurityGroupName')]",
       "location": "[parameters('location')]",
       "properties": {
@@ -188,7 +188,7 @@
     },
     {
       "type": "Microsoft.Network/virtualNetworks",
-      "apiVersion": "2019-04-01",
+      "apiVersion": "2020-05-01",
       "name": "[parameters('virtualNetworkName')]",
       "location": "[parameters('location')]",
       "properties": {
@@ -211,15 +211,15 @@
     },
     {
       "type": "Microsoft.Network/publicIpAddresses",
-      "apiVersion": "2019-02-01",
+      "apiVersion": "2020-05-01",
       "name": "[variables('publicIpAddressName')]",
       "location": "[parameters('location')]",
-      "properties": {
-        "publicIpAllocationMethod": "Dynamic"
-      },
       "sku": {
         "name": "Basic",
         "tier": "Regional"
+      },
+      "properties": {
+        "publicIpAllocationMethod": "Dynamic"
       }
     },
     {
@@ -234,7 +234,7 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines",
-      "apiVersion": "2019-03-01",
+      "apiVersion": "2019-07-01",
       "name": "[concat(variables('virtualMachineName'),'-', parameters('Cpu-Gpu'))]",
       "location": "[parameters('location')]",
       "dependsOn": [
@@ -254,8 +254,8 @@
           },
           "imageReference": {
             "publisher": "microsoft-dsvm",
-            "offer": "linux-data-science-vm-ubuntu",
-            "sku": "linuxdsvmubuntu",
+            "offer": "ubuntu-1804",
+            "sku": "1804-gen2",
             "version": "latest"
           }
         },
