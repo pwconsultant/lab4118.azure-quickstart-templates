@@ -17,7 +17,7 @@
     "principalId": {
       "type": "string",
       "metadata": {
-        "description": "principalId if the user that will be given contributor access to the resourceGroup"
+        "description": "principalId of the user that will be given contributor access to the resourceGroup"
       }
     },
     "roleDefinitionId": {
@@ -72,7 +72,7 @@
             },
             {
               "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2020-03-01-preview",
+              "apiVersion": "2020-04-01-preview",
               "name": "[guid(parameters('roleAssignmentName'))]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
